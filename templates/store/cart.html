@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Cart — Saagu.farm{% endblock %}
+
+{% block content %}
+<section class="py-16 px-6">
+    <div class="max-w-3xl mx-auto">
+        <h1 class="text-3xl font-extrabold text-slate-900 mb-8">
+            <i class="fas fa-shopping-cart mr-2 text-green-600"></i> Your Cart
+        </h1>
+
+        {% if items %}
+        <div class="space-y-4 mb-8">
+            {% for item in items %}
+            <div class="flex gap-4 p-5 bg-white rounded-2xl border border-slate-100 shadow-sm relative group">
+                <div class="w-20 h-20 rounded-xl flex items-center justify-center text-2xl shadow-inner
+                    {% if item.variant.product.category == 'spice' %}bg-red-100 text-red-500
+                    {% elif item.variant.product.category == 'pickle_veg' %}bg-green-100 text-green-500
+                    {% else %}bg-orange-100 text-orange-500{% endif %}">
+                    <i class="fas fa-box"></i>
+                </div>
+                <div class="flex-1">
+                    <h4 class="font-bold text-slate-900 text-base">{{ item.variant.product.name }}</h4>
+                    <p class="text-[11px] text-slate-400 font-bold uppercase tracking-wider mb-3">{{ item.variant.weight }}</p>
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-1 border border-slate-200">
+                            <button onclick="updateCartItem('{{ item.variant.id }}', {{ item.quantity }} - 1)" class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-900">
+                                <i class="fas fa-minus text-xs"></i>
+                            </button>
+                            <span class="font-bold text-sm w-6 text-center">{{ item.quantity }}</span>
+                            <button onclick="updateCartItem('{{ item.variant.id }}', {{ item.quantity }} + 1)" class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-900">
+                                <i class="fas fa-plus text-xs"></i>
+                            </button>
+                        </div>
+                        <span class="font-black text-slate-900 text-lg">₹{{ item.line_total|floatformat:0 }}</span>
+                    </div>
+                </div>
+                <button onclick="removeCartItem('{{ item.variant.id }}')"
+                    class="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-full bg-red-50 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs hover:bg-red-100">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Summary -->
+        <div class="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm">
+            <div class="space-y-3 mb-6">
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-500">Subtotal</span>
+                    <span class="font-bold">₹{{ subtotal|floatformat:0 }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-500">Delivery</span>
+                    <span class="font-bold {% if delivery_charge == 0 %}text-green-600{% endif %}">
+                        {% if delivery_charge == 0 %}FREE{% else %}₹{{ delivery_charge|floatformat:0 }}{% endif %}
+                    </span>
+                </div>
+                {% if delivery_charge > 0 %}
+                <p class="text-[11px] text-green-600 italic">Free delivery on orders above ₹500</p>
+                {% endif %}
+                <hr class="border-slate-100">
+                <div class="flex justify-between text-lg">
+                    <span class="font-bold text-slate-700">Total</span>
+                    <span class="font-black text-slate-900 text-2xl">₹{{ total|floatformat:0 }}</span>
+                </div>
+            </div>
+
+            <a href="{% url 'store:checkout' %}"
+                class="block w-full brand-gradient text-white py-4 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-1 transition text-center text-sm uppercase tracking-widest">
+                Proceed to Checkout <i class="fas fa-arrow-right ml-2"></i>
+            </a>
+        </div>
+
+        {% else %}
+        <div class="text-center py-20">
+            <div class="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-shopping-cart text-3xl text-slate-300"></i>
+            </div>
+            <h3 class="text-xl font-bold text-slate-400 mb-2 italic">Your cart is empty</h3>
+            <a href="{% url 'store:home' %}#products" class="brand-gradient text-white px-8 py-3 rounded-xl font-bold inline-block mt-4 hover:-translate-y-1 transition text-sm">
+                Browse Products
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function updateCartItem(variantId, qty) {
+        ajaxPost("{% url 'store:update_cart' %}", { variant_id: variantId, quantity: qty })
+            .then(() => location.reload());
+    }
+
+    function removeCartItem(variantId) {
+        ajaxPost("{% url 'store:remove_from_cart' %}", { variant_id: variantId })
+            .then(() => location.reload());
+    }
+</script>
+{% endblock %}

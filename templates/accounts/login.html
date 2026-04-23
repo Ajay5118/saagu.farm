@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+{% block title %}Login — Saagu.farm{% endblock %}
+
+{% block extra_css %}
+<style>
+  .otp-input { letter-spacing: 0.5em; }
+  #otp-screen { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="min-h-[70vh] flex items-center justify-center px-6 py-20">
+  <div class="w-full max-w-md">
+
+    <div class="text-center mb-10">
+      <div class="text-4xl font-extrabold mb-2">
+        <span class="text-green-700">Saagu</span><span class="text-red-600">.farm</span>
+      </div>
+      <p class="text-slate-400 text-sm italic">Login with your phone number</p>
+    </div>
+
+    <div class="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-xl">
+
+      <!-- Step 1: Phone number -->
+      <div id="phone-screen">
+        <div class="space-y-6">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Phone Number</label>
+            <div class="flex items-center gap-2">
+              <span class="bg-slate-100 px-4 py-3 rounded-xl text-sm font-bold text-slate-500 border border-slate-200">+91</span>
+              <input type="tel" id="phone-input" placeholder="9381172007" maxlength="10" pattern="[0-9]{10}"
+                class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-lg font-bold text-slate-900 tracking-wider focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                autofocus>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-2 italic">We'll send a one-time verification code via SMS.</p>
+          </div>
+          <div id="recaptcha-container"></div>
+          <button id="send-otp-btn"
+            class="w-full brand-gradient text-white py-4 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-1 transition text-sm uppercase tracking-widest">
+            Send OTP <i class="fas fa-arrow-right ml-2"></i>
+          </button>
+          <p id="phone-error" class="text-red-500 text-xs text-center hidden"></p>
+        </div>
+      </div>
+
+      <!-- Step 2: OTP verification -->
+      <div id="otp-screen">
+        <div class="space-y-6">
+          <div class="text-center">
+            <div class="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <i class="fas fa-shield-alt text-xl text-green-600"></i>
+            </div>
+            <p class="text-slate-500 text-sm italic">OTP sent to <span id="masked-phone" class="font-bold text-slate-800"></span></p>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">OTP Code</label>
+            <input type="text" id="otp-input" placeholder="000000" maxlength="6" pattern="[0-9]{6}"
+              class="otp-input w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 text-2xl font-black text-slate-900 text-center focus:outline-none focus:ring-2 focus:ring-green-500"
+              autocomplete="one-time-code" autofocus>
+          </div>
+          <button id="verify-btn"
+            class="w-full brand-gradient text-white py-4 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-1 transition text-sm uppercase tracking-widest">
+            Verify & Login <i class="fas fa-check ml-2"></i>
+          </button>
+          <p id="otp-error" class="text-red-500 text-xs text-center hidden"></p>
+          <div class="text-center">
+            <button id="resend-btn" class="text-sm text-green-600 font-bold hover:underline">
+              Didn't receive? Resend OTP
+            </button>
+            <span class="mx-2 text-slate-300">|</span>
+            <button id="change-phone-btn" class="text-sm text-slate-400 hover:text-slate-600">
+              Change number
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <p class="text-center text-xs text-slate-400 mt-6 italic">
+      By continuing, you agree to our Terms of Service.
+    </p>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script>
+  const FIREBASE_CONFIG = {
+    apiKey:            "AIzaSyDZviLw0cqCjUZrFrmzyjvyEdsxeL9hWNM",
+    authDomain:        "saagu-farm.firebaseapp.com",
+    projectId:         "saagu-farm",
+    storageBucket:     "saagu-farm.firebasestorage.app",
+    messagingSenderId: "410557441820",
+    appId:             "1:410557441820:web:83009ef6986cccf57c7cd9",
+  };
+
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const auth = firebase.auth();
+
+  let recaptchaVerifier = null;
+  let recaptchaWidgetId = null;
+  let confirmationResult = null;
+
+  // ── reCAPTCHA Lifecycle ────────────────────────────────────────
+  // KEY FIX: Create a fresh verifier, and properly clean up the old one
+
+  function initRecaptcha() {
+    // If verifier already exists, clear it first
+    if (recaptchaVerifier) {
+      try {
+        recaptchaVerifier.clear();
+      } catch (e) {
+        // Ignore — might already be cleared
+      }
+      recaptchaVerifier = null;
+    }
+
+    // Clear any orphaned reCAPTCHA DOM elements
+    const container = document.getElementById('recaptcha-container');
+    if (container) container.innerHTML = '';
+
+    recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+      size: 'invisible',
+      callback: () => {
+        // reCAPTCHA solved automatically
+      },
+      'expired-callback': () => {
+        // Token expired — re-init so next attempt works
+        console.log('reCAPTCHA expired, re-initializing...');
+        initRecaptcha();
+      },
+    });
+
+    recaptchaVerifier.render().then(widgetId => {
+      recaptchaWidgetId = widgetId;
+    }).catch(err => {
+      console.error('reCAPTCHA render error:', err);
+    });
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────
+
+  function showError(elId, msg) {
+    const el = document.getElementById(elId);
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  function clearError(elId) {
+    document.getElementById(elId).classList.add('hidden');
+  }
+
+  function setLoading(btnId, loading, defaultText) {
+    const btn = document.getElementById(btnId);
+    btn.disabled = loading;
+    btn.style.opacity = loading ? '0.6' : '1';
+    btn.style.pointerEvents = loading ? 'none' : 'auto';
+  }
+
+  // ── Send OTP ───────────────────────────────────────────────────
+
+  async function sendOtpToPhone(phone) {
+    try {
+      confirmationResult = await auth.signInWithPhoneNumber(phone, recaptchaVerifier);
+      return true;
+    } catch (err) {
+      // If reCAPTCHA-related error, reset and throw so caller can show message
+      if (
+        err.code === 'auth/invalid-app-credential' ||
+        err.code === 'auth/argument-error' ||
+        err.code === 'auth/captcha-check-failed'
+      ) {
+        console.warn('reCAPTCHA issue, resetting verifier...');
+        initRecaptcha();
+      }
+      throw err;
+    }
+  }
+
+  document.getElementById('send-otp-btn').addEventListener('click', async () => {
+    clearError('phone-error');
+    const raw = document.getElementById('phone-input').value.trim();
+
+    if (!/^\d{10}$/.test(raw)) {
+      showError('phone-error', 'Enter a valid 10-digit phone number.');
+      return;
+    }
+
+    setLoading('send-otp-btn', true);
+    try {
+      await sendOtpToPhone('+91' + raw);
+      document.getElementById('phone-screen').style.display = 'none';
+      document.getElementById('otp-screen').style.display   = 'block';
+      document.getElementById('masked-phone').textContent   = raw.slice(0, 3) + '****' + raw.slice(7);
+      document.getElementById('otp-input').value = '';
+      document.getElementById('otp-input').focus();
+    } catch (err) {
+      console.error('Send OTP failed:', err);
+
+      // User-friendly error messages
+      const errorMap = {
+        'auth/invalid-app-credential': 'Verification setup failed. Please refresh the page and try again.',
+        'auth/too-many-requests':      'Too many attempts. Please wait a few minutes and try again.',
+        'auth/quota-exceeded':         'SMS limit reached. Please try again later.',
+        'auth/invalid-phone-number':   'Invalid phone number. Please check and try again.',
+        'auth/captcha-check-failed':   'Security check failed. Please refresh the page.',
+      };
+
+      const msg = errorMap[err.code] || 'Failed to send OTP. Please try again.';
+      showError('phone-error', msg);
+    } finally {
+      setLoading('send-otp-btn', false);
+    }
+  });
+
+  // ── Verify OTP ─────────────────────────────────────────────────
+
+  document.getElementById('verify-btn').addEventListener('click', async () => {
+    clearError('otp-error');
+    const code = document.getElementById('otp-input').value.trim();
+
+    if (!/^\d{6}$/.test(code)) {
+      showError('otp-error', 'Enter the 6-digit OTP.');
+      return;
+    }
+
+    setLoading('verify-btn', true);
+    try {
+      const result  = await confirmationResult.confirm(code);
+      const idToken = await result.user.getIdToken();
+
+      const res = await fetch("{% url 'accounts:firebase_verify' %}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+        body: JSON.stringify({ id_token: idToken }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        window.location.href = data.redirect;
+      } else {
+        showError('otp-error', data.error || 'Login failed. Try again.');
+      }
+    } catch (err) {
+      console.error('Verify failed:', err);
+
+      const errorMap = {
+        'auth/invalid-verification-code': 'Wrong OTP. Please check and try again.',
+        'auth/code-expired':              'OTP expired. Please request a new one.',
+        'auth/session-expired':           'Session expired. Please request a new OTP.',
+      };
+
+      const msg = errorMap[err.code] || 'Verification failed. Please try again.';
+      showError('otp-error', msg);
+    } finally {
+      setLoading('verify-btn', false);
+    }
+  });
+
+  // ── Resend OTP ─────────────────────────────────────────────────
+  // KEY FIX: Re-initialize reCAPTCHA before resending
+
+  document.getElementById('resend-btn').addEventListener('click', async () => {
+    clearError('otp-error');
+    const raw = document.getElementById('phone-input').value.trim();
+
+    if (!raw) {
+      showError('otp-error', 'Phone number missing. Please go back.');
+      return;
+    }
+
+    // Reset reCAPTCHA for a fresh token
+    initRecaptcha();
+    // Give reCAPTCHA a moment to render
+    await new Promise(r => setTimeout(r, 1000));
+
+    try {
+      await sendOtpToPhone('+91' + raw);
+      document.getElementById('otp-input').value = '';
+      document.getElementById('otp-input').focus();
+      // Brief success feedback
+      const resendBtn = document.getElementById('resend-btn');
+      resendBtn.textContent = 'OTP Sent!';
+      resendBtn.classList.add('text-slate-400');
+      setTimeout(() => {
+        resendBtn.textContent = "Didn't receive? Resend OTP";
+        resendBtn.classList.remove('text-slate-400');
+      }, 3000);
+    } catch (err) {
+      console.error('Resend failed:', err);
+      showError('otp-error', 'Failed to resend. Please refresh the page and try again.');
+    }
+  });
+
+  // ── Change Phone ───────────────────────────────────────────────
+  // KEY FIX: Re-initialize reCAPTCHA when switching back to phone screen
+
+  document.getElementById('change-phone-btn').addEventListener('click', () => {
+    document.getElementById('otp-screen').style.display   = 'none';
+    document.getElementById('phone-screen').style.display = 'block';
+    document.getElementById('phone-input').focus();
+    confirmationResult = null;
+    clearError('phone-error');
+    clearError('otp-error');
+
+    // Fresh reCAPTCHA for next attempt
+    initRecaptcha();
+  });
+
+  // ── Enter key shortcuts ────────────────────────────────────────
+
+  document.getElementById('phone-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('send-otp-btn').click();
+  });
+  document.getElementById('otp-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('verify-btn').click();
+  });
+
+  // ── Initialize on page load ────────────────────────────────────
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initRecaptcha();
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,120 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Saagu.farm | Authentic Spices & Pickles{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .brand-gradient { background: linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%); }
+        .chilli-gradient { background: linear-gradient(135deg, #C62828 0%, #8E0000 100%); }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-[#FCFDFB] text-slate-900">
+
+    <!-- ── Navbar ────────────────────────────────────────────── -->
+    <nav class="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="{% url 'store:home' %}" class="text-2xl font-extrabold tracking-tight flex items-center">
+                <span class="text-green-700">Saagu</span><span class="text-red-600">.farm</span>
+            </a>
+            <div class="hidden md:flex space-x-8 text-sm font-bold uppercase tracking-widest text-slate-600">
+                <a href="{% url 'store:home' %}#products" class="hover:text-green-700 transition">Shop</a>
+                <a href="{% url 'store:home' %}#story" class="hover:text-green-700 transition">Our Story</a>
+                <a href="{% url 'store:home' %}#b2b" class="hover:text-green-700 transition">Wholesale</a>
+                {% if user.is_authenticated %}
+                <a href="{% url 'store:my_orders' %}" class="hover:text-green-700 transition">My Orders</a>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="{% url 'store:cart' %}" class="relative text-slate-600 hover:text-green-700 transition flex items-center gap-2">
+                    <i class="fas fa-shopping-cart text-xl"></i>
+                    {% if cart_count > 0 %}
+                    <span class="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold shadow-sm">{{ cart_count }}</span>
+                    {% endif %}
+                </a>
+
+                {% if user.is_authenticated %}
+                <div class="relative group">
+                    <button class="flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-full text-sm font-bold text-slate-700 hover:bg-slate-200 transition">
+                        <i class="fas fa-user text-xs"></i>
+                        {{ user.get_display_name|truncatechars:12 }}
+                    </button>
+                    <div class="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-2 hidden group-hover:block z-50">
+                        <a href="{% url 'accounts:profile' %}" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                            <i class="fas fa-user-circle mr-2"></i> Profile
+                        </a>
+                        <a href="{% url 'store:my_orders' %}" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                            <i class="fas fa-box mr-2"></i> My Orders
+                        </a>
+                        <hr class="my-1 border-slate-100">
+                        <a href="{% url 'accounts:logout' %}" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                            <i class="fas fa-sign-out-alt mr-2"></i> Logout
+                        </a>
+                    </div>
+                </div>
+                {% else %}
+                <a href="{% url 'accounts:login' %}" class="bg-slate-900 text-white px-5 py-2 rounded-full text-xs font-bold uppercase tracking-tighter hover:bg-slate-700 transition">
+                    Login
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- ── Messages ──────────────────────────────────────────── -->
+    {% if messages %}
+    <div class="max-w-7xl mx-auto px-6 pt-4">
+        {% for message in messages %}
+        <div class="mb-2 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2
+            {% if message.tags == 'success' %}bg-green-50 text-green-700 border border-green-200
+            {% elif message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200
+            {% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-700 border border-yellow-200
+            {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
+            <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% else %}fa-info-circle{% endif %}"></i>
+            {{ message }}
+            <button onclick="this.parentElement.remove()" class="ml-auto opacity-50 hover:opacity-100">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ── Content ───────────────────────────────────────────── -->
+    {% block content %}{% endblock %}
+
+    <!-- ── WhatsApp FAB ──────────────────────────────────────── -->
+    <a href="https://wa.me/919381172007" target="_blank"
+        class="fixed bottom-8 right-8 bg-[#25D366] text-white w-16 h-16 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all z-[100]">
+        <i class="fab fa-whatsapp text-3xl"></i>
+    </a>
+
+    <!-- ── Footer ────────────────────────────────────────────── -->
+    <footer class="py-12 text-center text-slate-400 text-[10px] uppercase tracking-[0.2em] font-bold">
+        &copy; 2026 Saagu Agro Tech Pvt. Ltd. | FSSAI Registered | Telangana &amp; AP
+    </footer>
+
+    <!-- ── CSRF Token for AJAX ───────────────────────────────── -->
+    <script>
+        const CSRF_TOKEN = '{{ csrf_token }}';
+
+        function ajaxPost(url, data) {
+            return fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': CSRF_TOKEN,
+                },
+                body: new URLSearchParams(data),
+            }).then(r => r.json());
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
